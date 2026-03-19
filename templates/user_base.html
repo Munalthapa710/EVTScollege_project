@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or "User Panel" }} - EVTS</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.js" integrity="sha512-8BHxHDLsOHx+flIrQ0DrZcea7MkHqRU5GbTHmbdzMRnAaoCIkZ97PqZcXJkKZckMMhqfoeaJE+DNUVuyoQsO3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -48,12 +50,32 @@
     </div>
     
     {% include 'footer.html' %}
+    <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
     <script type="text/javascript">
         window.addEventListener('pageshow', function(event) { if (event.persisted) { window.location.reload(); } });
         window.addEventListener('unload', function() {});
         function toggleProfileDropdown(dropdownId) { var d=document.getElementById(dropdownId); if(d){var all=document.getElementsByClassName("profile-dropdown");for(var i=0;i<all.length;i++){if(all[i].id!==dropdownId&&all[i].classList.contains('show'))all[i].classList.remove('show');}d.classList.toggle("show");}}
         window.onclick = function(event) { if (!event.target.closest('.profile-image-clickable') && !event.target.closest('.profile-dropdown')) { var ds=document.getElementsByClassName("profile-dropdown"); for(var i=0;i<ds.length;i++){if(ds[i].classList.contains('show'))ds[i].classList.remove('show');}}}
+        window.showToast = function(message, category) {
+            const container = document.getElementById('toastContainer');
+            if (!container || !message) return;
+            const normalizedCategory = category || 'info';
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${normalizedCategory}`;
+            toast.innerHTML = `<div class="toast-title">${normalizedCategory}</div><div class="toast-body"></div>`;
+            toast.querySelector('.toast-body').textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 220);
+            }, 3200);
+        };
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashedMessages = {{ get_flashed_messages(with_categories=true) | tojson }};
+            flashedMessages.forEach(([category, message]) => window.showToast(message, category));
+        });
     </script>
     {% block scripts_extra %}
     {% endblock %}

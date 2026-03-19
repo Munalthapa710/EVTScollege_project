@@ -330,7 +330,7 @@ window.routeToService = function(markerId) {
     }
 
     if (!userLiveMarker) {
-        alert("Please set your location on the map first.");
+        showToast("Please set your location on the map first.", 'warning');
         return;
     }
     if (userLiveMarker.dragging) 
@@ -660,7 +660,7 @@ window.routeToService = function(markerId) {
 
             socket.on('new_suggestion', function(data) {
     console.log('[USER DASH] Received new_suggestion:', data);
-    alert(data.message); // Notify the user
+    showToast(data.message, 'info');
 
     // Update the status display on the page
     const notificationsDiv = document.getElementById('notifications');
@@ -676,7 +676,7 @@ window.routeToService = function(markerId) {
 // Listen for the final timeout if no other drivers are found
 socket.on('ride_timeout_no_drivers', function(data) {
     console.log('[USER DASH] Received ride_timeout_no_drivers:', data);
-    alert(data.message);
+    showToast(data.message, 'warning');
 
     const notificationsDiv = document.getElementById('notifications');
     if (notificationsDiv) {
@@ -712,7 +712,7 @@ socket.on('ride_timeout_no_drivers', function(data) {
     }
      console.log('[USER DASH] Ride accepted, updating UI dynamically:', data);
      excludedDriverEmails = []; // Reset the exclusion list on a successful ride
-     alert(data.message);
+     showToast(data.message, 'success');
  
      // Step 1: Update the status panel to show a success message
      const notificationsDiv = document.getElementById('notifications');
@@ -747,7 +747,7 @@ socket.on('ride_timeout_no_drivers', function(data) {
              
  socket.on('ride_rejected', function(data) {
      console.log('[USER DASH] Ride rejected, updating UI dynamically:', data.driver_email);
-     alert(data.message);
+     showToast(data.message, 'warning');
  
      // add the rejected driver to our exclusion list
      if (data.driver_email && !excludedDriverEmails.includes(data.driver_email)) {
@@ -772,7 +772,7 @@ socket.on('ride_timeout_no_drivers', function(data) {
             socket.on('ride_completed', function(data) {
      console.log('[USER DASH] Ride completed, resetting UI.');
      excludedDriverEmails = []; // Reset lists
-     alert(data.message);
+     showToast(data.message, 'success');
      hideChatBox();
  
      // reset the UI elements back to their initial state
@@ -833,11 +833,11 @@ socket.on('receive_chat_message', function(data)
         console.log("ACTION: Finding ANOTHER driver. Preserving exclusion list.");
     }
     if (currentUserLatitude === null || currentUserLongitude === null) {
-        alert("Please set your location on the map first.");
+        showToast("Please set your location on the map first.", 'warning');
         return;
     }
     if (graphDataForDijkstra && Object.keys(graphDataForDijkstra).length > 0 && !userClosestNodeKeyForDijkstra) {
-        alert("Cannot determine nearest service point for network routing. Try clicking the map again.");
+        showToast("Cannot determine nearest service point for network routing. Try clicking the map again.", 'error');
         return;
     }
     const findBtn = document.getElementById('findNearestBtn');
@@ -915,7 +915,7 @@ socket.on('receive_chat_message', function(data)
 
 window.confirmRequestAndClearPreview = function() {
     if (!currentNearestDriverForConfirmation || currentUserLatitude === null) {
-        alert("Driver selection or your location is not properly set.");
+        showToast("Driver selection or your location is not properly set.", 'error');
         cancelDriverSelectionAndClearPreview();
         return;
     }
@@ -947,6 +947,7 @@ window.confirmRequestAndClearPreview = function() {
         if (!d.success) {
             throw new Error(d.message || "Request failed.");
         }
+        showToast(d.message || `Ride request sent to ${driverEmailToSend}.`, 'success');
         
         // --- DYNAMIC UI UPDATE ON SUCCESS ---
         // 1. Hide the driver selection/info box
@@ -973,6 +974,7 @@ window.confirmRequestAndClearPreview = function() {
     })
     .catch(e => {
         console.error('Ride request error:', e);
+        showToast(e.message, 'error');
         // On error, show a try again button
         infoDiv.innerHTML = `
             <p style="color:red;">Error: ${e.message}</p>

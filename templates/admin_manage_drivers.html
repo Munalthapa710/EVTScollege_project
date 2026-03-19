@@ -60,6 +60,7 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                showToast(data.message, 'success');
                 // If deletion was successful, remove the driver's row from the table.
                 const rowId = `driver-row-${email.replace('@', '_').replace('.', '_')}`;
                 const row = document.getElementById(rowId);
@@ -69,16 +70,13 @@
                     row.style.opacity = '0';
                     setTimeout(() => row.remove(), 500);
                 }
-                // We don't need to reload the page, but you could if you prefer.
-                // window.location.reload(); 
             } else {
-                // If there was an error, show an alert.
-                alert('Error: ' + data.message);
+                showToast(data.message || 'Unable to delete driver.', 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An unexpected error occurred during the deletion process.');
+            showToast('An unexpected error occurred during driver deletion.', 'error');
         });
     }
 </script>

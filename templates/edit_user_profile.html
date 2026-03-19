@@ -1,50 +1,94 @@
 {% extends 'user_base.html' %}
 {% block content %}
-<h2>Edit Your Profile</h2>
+<div class="profile-shell">
+    <section class="profile-hero">
+        <div>
+            <h2>Edit Your Profile</h2>
+            <p>Keep your account details accurate so requests, ride history, and communication stay reliable.</p>
+        </div>
+        <div class="profile-badge">User account</div>
+    </section>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <ul class="flashes"> {# Ensure this ul has the class="flashes" #}
-    {% for category, message in messages %}
-      {# The class will now be "success", "error", etc. directly #}
-      {# The common styles are in .flashes li, specific bg/color by category class #}
-      <li class="{{ category }}"> 
-        {{ message }}
-      </li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+    <div class="profile-grid">
+        <aside class="profile-side-card">
+            <h3>Account Snapshot</h3>
+            <div class="profile-meta-list">
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Email</span>
+                    <span class="profile-meta-value">{{ user.email }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Current Name</span>
+                    <span class="profile-meta-value">{{ user.name }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Phone</span>
+                    <span class="profile-meta-value">{{ user.phone }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Map Location</span>
+                    <span class="profile-meta-value">
+                        {% if user.latitude and user.longitude %}
+                            {{ user.latitude|round(6) }}, {{ user.longitude|round(6) }}
+                        {% else %}
+                            Not set yet
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="profile-note">
+                {% if user.latitude and user.longitude %}
+                    Your live map location is already saved. Update it from the dashboard whenever your position changes.
+                {% else %}
+                    Your map location is not set yet. Open the dashboard and click the map to save your current position.
+                {% endif %}
+            </div>
+        </aside>
 
-<form method="POST" action="{{ url_for('edit_user_profile') }}" class="profile-edit-form">
-    {# ... rest of your form ... #}
-    <div class="form-group">
-        <label for="email">Email (Cannot be changed)</label>
-        <input type="email" id="email" name="email" value="{{ user.email }}" class="form-control" readonly>
+        <form method="POST" action="{{ url_for('edit_user_profile') }}" class="profile-form-card">
+            <div class="profile-form-header">
+                <h3>Personal Details</h3>
+                <p>Update your contact information and optionally set a new password.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}" class="form-control" readonly>
+                <small class="helper-text">Email is fixed for this account and cannot be changed here.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" value="{{ user.name }}" class="form-control" required minlength="2" maxlength="100">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" value="{{ user.phone }}" class="form-control" required pattern="^9\d{9}$" title="Enter a 10-digit phone number that starts with 9.">
+                <small class="helper-text">Use a 10-digit phone number starting with 9.</small>
+            </div>
+
+            <hr>
+
+            <div>
+                <h4 class="profile-section-title">Security</h4>
+                <p>Leave the password fields empty if you do not want to change your password.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" id="new_password" name="new_password" class="form-control" placeholder="Minimum 8 characters">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter new password">
+            </div>
+
+            <div class="profile-actions">
+                <button type="submit" class="button-style btn-confirm">Save Profile Changes</button>
+            </div>
+        </form>
     </div>
-    <div class="form-group">
-        <label for="name">Full Name</label>
-        <input type="text" id="name" name="name" value="{{ user.name }}" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="phone">Phone Number</label>
-        <input type="tel" id="phone" name="phone" value="{{ user.phone }}" class="form-control" required>
-    </div>
-    <hr style="margin: 20px 0;">
-    <h4 style="margin-bottom:15px;">Change Password</h4>
-    <div class="form-group">
-        <label for="new_password">New Password</label>
-        <input type="password" id="new_password" name="new_password" class="form-control" placeholder="Enter new password">
-    </div>
-    <div class="form-group">
-        <label for="confirm_password">Confirm New Password</label>
-        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Confirm new password">
-    </div>
-    {% if user.latitude and user.longitude %}
-    <p style="font-size:0.9em; color:#555;">Your map location: ({{ user.latitude|round(6) }}, {{ user.longitude|round(6) }}). Update on dashboard map.</p>
-    {% else %}
-    <p style="font-size:0.9em; color:#dc3545;">Map location not set. Set on dashboard.</p>
-    {% endif %}
-    <button type="submit" class="button-style btn-confirm" style="margin-top: 20px; width: 100%;">Update Profile</button>
-</form>
+</div>
 {% endblock %}

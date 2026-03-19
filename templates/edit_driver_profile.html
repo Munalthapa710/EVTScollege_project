@@ -1,72 +1,98 @@
 {% extends 'driver_base.html' %}
-{% block content %} 
-<h2>Edit Driver Profile</h2>
+{% block content %}
+<div class="profile-shell driver-profile">
+    <section class="profile-hero">
+        <div>
+            <h2>Edit Driver Profile</h2>
+            <p>Keep your dispatch details current so routing, ride assignment, and driver visibility stay accurate.</p>
+        </div>
+        <div class="profile-badge">Driver account</div>
+    </section>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <ul class="flashes"> 
-    {% for category, message in messages %}
-      <li class="{{ category }}">
-        {{ message }}
-      </li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+    <div class="profile-grid">
+        <aside class="profile-side-card">
+            <h3>Dispatch Snapshot</h3>
+            <div class="profile-meta-list">
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Email</span>
+                    <span class="profile-meta-value">{{ driver.email }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Vehicle</span>
+                    <span class="profile-meta-value">{{ driver.vehicle }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Current Node</span>
+                    <span class="profile-meta-value">{{ driver.node }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Approval Status</span>
+                    <span class="profile-meta-value">{{ 'Approved' if driver.is_approved else 'Pending approval' }}</span>
+                </div>
+            </div>
+            <div class="profile-note">
+                Updating the node changes your active operational base, which affects how the nearest-driver logic sees your position.
+            </div>
+        </aside>
 
-<form method="POST" action="{{ url_for('edit_driver_profile') }}" class="profile-edit-form">
-    {# Email (Cannot be changed) #}
-    <div class="form-group">
-        <label for="email">Email (Cannot be changed)</label>
-        <input type="email" id="email" name="email" value="{{ driver.email }}" class="form-control" readonly>
+        <form method="POST" action="{{ url_for('edit_driver_profile') }}" class="profile-form-card">
+            <div class="profile-form-header">
+                <h3>Driver Details</h3>
+                <p>Update your personal information, vehicle details, and dispatch node.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ driver.email }}" class="form-control" readonly>
+                <small class="helper-text">Email is locked for this account.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" value="{{ driver.name }}" class="form-control" required minlength="2" maxlength="100">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" value="{{ driver.phone }}" class="form-control" required pattern="^9\d{9}$" title="Enter a 10-digit phone number that starts with 9.">
+            </div>
+
+            <div class="form-group">
+                <label for="vehicle">Vehicle Type</label>
+                <input type="text" id="vehicle" name="vehicle" value="{{ driver.vehicle }}" class="form-control" required minlength="2" maxlength="50">
+            </div>
+
+            <div class="form-group">
+                <label for="node">Current Location Node</label>
+                <select id="node" name="node" class="form-control">
+                    {% for node_key in nodes %}
+                    <option value="{{ node_key }}" {% if driver.node == node_key %}selected{% endif %}>{{ node_key }}</option>
+                    {% endfor %}
+                </select>
+                <small class="helper-text">Choose the node that best represents your current service base.</small>
+            </div>
+
+            <hr>
+
+            <div>
+                <h4 class="profile-section-title">Security</h4>
+                <p>Leave the password fields empty if you want to keep your current password.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" id="new_password" name="new_password" class="form-control" placeholder="Minimum 8 characters">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter new password">
+            </div>
+
+            <div class="profile-actions">
+                <button type="submit" class="button-style btn-confirm">Save Profile Changes</button>
+            </div>
+        </form>
     </div>
-
-    {# Full Name #}
-    <div class="form-group">
-        <label for="name">Full Name</label>
-        <input type="text" id="name" name="name" value="{{ driver.name }}" class="form-control" required>
-    </div>
-
-    {# Phone Number #}
-    <div class="form-group">
-        <label for="phone">Phone Number</label>
-        <input type="tel" id="phone" name="phone" value="{{ driver.phone }}" class="form-control" required>
-    </div>
-
-    {# Vehicle Type#}
-    <div class="form-group">
-        <label for="vehicle">Vehicle Type</label>
-        <input type="text" id="vehicle" name="vehicle" value="{{ driver.vehicle }}" class="form-control" required>
-    </div>
-
-    {# Current Location Node #}
-    <div class="form-group">
-        <label for="node">Current Location Node</label>
-        <select id="node" name="node" class="form-control">
-            {% for node_key in nodes %}
-            <option value="{{ node_key }}" {% if driver.node == node_key %}selected{% endif %}>
-                {{ node_key }}
-            </option>
-            {% endfor %}
-        </select>
-         <small class="form-text text-muted">Changing your node updates your current operational base.</small>
-    </div>
-    
-    <hr style="margin: 20px 0;">
-    <h4 style="margin-bottom:15px;">Change Password</h4>
-
-    {# New Password #}
-    <div class="form-group">
-        <label for="new_password">New Password</label>
-        <input type="password" id="new_password" name="new_password" class="form-control" placeholder="Enter new password">
-    </div>
-
-    {# Confirm New Password #}
-    <div class="form-group">
-        <label for="confirm_password">Confirm New Password</label>
-        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Confirm new password">
-    </div>
-
-    <button type="submit" class="button-style btn-confirm" style="margin-top: 20px; width: 100%;">Update Profile</button>
-</form>
-{% endblock %} 
+</div>
+{% endblock %}

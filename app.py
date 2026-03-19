@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from flask_socketio import SocketIO, emit, join_room
 import pytz
 import re
+import atexit
 from functools import wraps 
 from dijkstra import dijkstra, shortest_path 
 from graph_with_coords import graph, coordinates ,emergency_services
@@ -13,17 +14,31 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import timedelta
 
 app = Flask(__name__) 
-app.secret_key = os.urandom(24).hex() 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'evts-dev-secret-key')
+app.secret_key = app.config['SECRET_KEY']
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 os.makedirs(app.instance_path, exist_ok=True)#database file creating 
-scheduler = BackgroundScheduler()
-scheduler.start()
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*") # initilize socket 
+scheduler = BackgroundScheduler(daemon=True)
+if not scheduler.running:
+    scheduler.start()
+atexit.register(lambda: scheduler.shutdown(wait=False) if scheduler.running else None)
+
+socketio_config = {'cors_allowed_origins': "*"}
+configured_async_mode = os.environ.get('SOCKETIO_ASYNC_MODE')
+if configured_async_mode:
+    socketio_config['async_mode'] = configured_async_mode
+elif os.name == 'nt':
+    socketio_config['async_mode'] = 'threading'
+socketio = SocketIO(app, **socketio_config) # initilize socket 
 db = SQLAlchemy(app)
 
 #to handle time zone (nepal time)
 NPT = pytz.timezone('Asia/Kathmandu')
+PHONE_PATTERN = re.compile(r"^9\d{9}$")
+
 def format_datetime_npt(dt_utc):
     if dt_utc is None: return "N/A"
     if dt_utc.tzinfo is None or dt_utc.tzinfo.utcoffset(dt_utc) is None:
@@ -32,6 +47,9 @@ def format_datetime_npt(dt_utc):
         dt_utc = dt_utc.astimezone(timezone.utc)
     dt_npt = dt_utc.astimezone(NPT)
     return dt_npt.strftime('%Y-%m-%d %H:%M NPT')
+
+def is_valid_phone_number(phone_number):
+    return bool(PHONE_PATTERN.match(phone_number))
 
 # Database 
 class Admin(db.Model):
@@ -165,7 +183,7 @@ def check_and_reroute_ride(ride_id, user_email, excluded_drivers=None):
             excluded_drivers.append(original_request.driver_email)
         
         # 3. Find the next nearest driver, ensuring we use the CUMULATIVE exclusion list.
-        user = User.query.get(user_email)
+        user = db.session.get(User, user_email)
         if not user or user.latitude is None:
             print("[JOB] User or user location not found. Cannot find next driver.")
             db.session.commit() # Commit the 'timed_out' status before exiting.
@@ -293,7 +311,7 @@ def register():
         if not phone:
             errors.append("Phone number is required.")
         #for phone num
-        elif not re.match(r"^9\d{9}$", phone):
+        elif not is_valid_phone_number(phone):
             errors.append("Invalid phone number format. It must be exactly 10 digits and start with '9'.")
         
         if not password:
@@ -422,7 +440,7 @@ def set_user_current_location():
         lat, lng = float(lat_str), float(lng_str)
         if not (-90 <= lat <= 90 and -180 <= lng <= 180): raise ValueError("Coords out of range.")
     except (ValueError, TypeError) as ve: return jsonify({'error': f'Invalid lat/lng: {ve}', 'success': False}), 400
-    user = User.query.get(session['user'])
+    user = db.session.get(User, session['user'])
     if user:
         user.latitude, user.longitude = lat, lng
         try: db.session.commit(); return jsonify({'success': True, 'latitude': lat, 'longitude': lng, 'message': f'Location updated to ({lat:.6f}, {lng:.6f})'}), 200
@@ -513,18 +531,23 @@ def request_ride():
     if not data:
          return jsonify({'message': 'Invalid request: No JSON data received', 'success': False}), 400
     
-    driver_email = data.get('driver_email')
+    driver_email = (data.get('driver_email') or '').strip().lower()
     if not driver_email:
         return jsonify({'message': 'Driver email missing from request', 'success': False}), 400
         
     user_email = session['user']
+    target_driver = Driver.query.filter_by(email=driver_email, is_approved=True).first()
+    if not target_driver:
+        return jsonify({'message': 'Selected driver is not available.', 'success': False}), 404
+    if not target_driver.node or target_driver.node not in coordinates:
+        return jsonify({'message': 'Selected driver does not have a valid dispatch location.', 'success': False}), 400
 
     RideRequest.query.filter(
         RideRequest.user_email == user_email,  #sqlinjection
         RideRequest.status.in_(['Pending', 'accepted'])
     ).update({'status': 'superseded'}, synchronize_session='fetch')
    
-    requesting_user = User.query.get(user_email)
+    requesting_user = db.session.get(User, user_email)
     if not requesting_user: 
         return jsonify({'message': 'Requesting user not found in database.', 'success': False}), 404
     
@@ -533,7 +556,7 @@ def request_ride():
 
     new_ride = RideRequest(
         user_email=user_email,
-        driver_email=driver_email,
+        driver_email=target_driver.email,
         user_latitude_at_request=requesting_user.latitude,
         user_longitude_at_request=requesting_user.longitude,
         status='Pending'
@@ -584,7 +607,7 @@ def accept_request():
     req_id = data.get('id')
     if not req_id: return jsonify({'error': 'Request ID missing', 'success': False}), 400
     
-    req = RideRequest.query.get(req_id)
+    req = db.session.get(RideRequest, req_id)
     if not req: return jsonify({'error': 'Request not found', 'success': False}), 404
     if req.driver_email != session['driver']: return jsonify({'error': 'Unauthorized', 'success': False}), 403
     if req.status != 'Pending': return jsonify({'error': f'Request is not pending (status: {req.status})', 'success': False}), 400
@@ -597,7 +620,7 @@ def accept_request():
         db.session.commit()
         # --- SOCKET.IO EMIT for ride accepted ---
         user_to_notify_email = req.user_email
-        driver_accepting = Driver.query.get(session['driver']) # Get current driver object
+        driver_accepting = db.session.get(Driver, session['driver']) # Get current driver object
         acceptance_data = {
             'ride_id': req.id,
             'driver_name': driver_accepting.name if driver_accepting else "Your Driver",
@@ -623,7 +646,7 @@ def reject_request():
     if not data: return jsonify({'error': 'Invalid request', 'success': False}), 400
     req_id = data.get('id')
     if not req_id: return jsonify({'error': 'Request ID missing', 'success': False}), 400
-    req = RideRequest.query.get(req_id)
+    req = db.session.get(RideRequest, req_id)
     if not req: return jsonify({'error': 'Request not found', 'success': False}), 404
     if req.driver_email != session['driver']: return jsonify({'error': 'Unauthorized', 'success': False}), 403
     if req.status != 'Pending':
@@ -635,7 +658,7 @@ def reject_request():
 
         # --- SOCKET.IO EMIT for ride rejected ---
         user_to_notify_email = req.user_email
-        driver_rejecting = Driver.query.get(session['driver'])
+        driver_rejecting = db.session.get(Driver, session['driver'])
         rejection_data = {
            'ride_id': req.id,
             'driver_name': driver_rejecting.name if driver_rejecting else "A driver",
@@ -660,7 +683,7 @@ def complete_ride():
     ride_id = data.get('ride_id')
     if not ride_id:
         return jsonify({'error': 'Ride ID missing in request', 'success': False}), 400
-    ride = RideRequest.query.get(ride_id)
+    ride = db.session.get(RideRequest, ride_id)
     if not ride:
         return jsonify({'error': 'Ride not found in database', 'success': False}), 404
     if ride.driver_email != session['driver']:
@@ -674,7 +697,7 @@ def complete_ride():
 
         # --- SOCKET.IO EMIT for ride completed ---
         user_to_notify_email = ride.user_email
-        driver_completing = Driver.query.get(session['driver'])
+        driver_completing = db.session.get(Driver, session['driver'])
         completion_data = {
             'ride_id': ride.id,
             'driver_name': driver_completing.name if driver_completing else "Your driver",
@@ -693,12 +716,16 @@ def complete_ride():
 @app.route('/dashboard') 
 @login_required_driver
 def dashboard():
-    driver = Driver.query.get(session['driver'])
+    driver = db.session.get(Driver, session['driver'])
+    if not driver:
+        session.clear()
+        flash('Driver session not found. Please log in again.', 'error')
+        return redirect(url_for('login'))
     
     pending_reqs_db = RideRequest.query.filter_by(driver_email=driver.email, status='Pending').order_by(RideRequest.timestamp.asc()).all()
     pending_serialized = []
     for r_db in pending_reqs_db:
-        user_obj = User.query.get(r_db.user_email)
+        user_obj = db.session.get(User, r_db.user_email)
         if r_db.user_latitude_at_request is not None and r_db.user_longitude_at_request is not None:
             pending_serialized.append({'id':r_db.id, 'user_email': r_db.user_email, 'user_name':(user_obj.name if user_obj else "User"), 
                                        'user_latitude':r_db.user_latitude_at_request, 'user_longitude':r_db.user_longitude_at_request,
@@ -706,7 +733,7 @@ def dashboard():
     active_ride_db = RideRequest.query.filter_by(driver_email=driver.email, status='accepted').first()
     active_ride_serialized = None
     if active_ride_db and active_ride_db.user_latitude_at_request is not None and active_ride_db.user_longitude_at_request is not None:
-        user_obj = User.query.get(active_ride_db.user_email)
+        user_obj = db.session.get(User, active_ride_db.user_email)
         active_ride_serialized = {'id':active_ride_db.id, 'user_email': active_ride_db.user_email, 'user_name':(user_obj.name if user_obj else "User"),
                                   'user_latitude':active_ride_db.user_latitude_at_request, 'user_longitude':active_ride_db.user_longitude_at_request,
                                   'timestamp':format_datetime_npt(active_ride_db.timestamp) }
@@ -717,7 +744,7 @@ def dashboard():
 @app.route('/user-dashboard')
 @login_required_user
 def user_dashboard():
-    user = User.query.get(session['user'])
+    user = db.session.get(User, session['user'])
     if not user: 
         session.pop('user', None)
         flash('User session not found, please log in again.', 'error')
@@ -736,7 +763,7 @@ def user_dashboard():
     accepted_ride_db = RideRequest.query.filter_by(user_email=user.email, status='accepted').order_by(RideRequest.timestamp.desc()).first()
 
     if accepted_ride_db:
-        driver_obj = Driver.query.get(accepted_ride_db.driver_email)
+        driver_obj = db.session.get(Driver, accepted_ride_db.driver_email)
         # Ensure all necessary location data is present for an accepted ride
         if driver_obj and driver_obj.node and driver_obj.node in coordinates and \
            accepted_ride_db.user_latitude_at_request is not None and \
@@ -757,7 +784,7 @@ def user_dashboard():
     else:
         pending_ride_db = RideRequest.query.filter_by(user_email=user.email, status='Pending').order_by(RideRequest.timestamp.desc()).first()
         if pending_ride_db:
-            driver_obj = Driver.query.get(pending_ride_db.driver_email)
+            driver_obj = db.session.get(Driver, pending_ride_db.driver_email)
             driver_name_pending = driver_obj.name if driver_obj else pending_ride_db.driver_email
             current_ride_status_info = {
                 'type': 'pending', 
@@ -771,7 +798,7 @@ def user_dashboard():
                 RideRequest.status.in_(['rejected','superseded'])
             ).order_by(RideRequest.timestamp.desc()).first()
             if last_inactive_ride_db:
-                driver_obj = Driver.query.get(last_inactive_ride_db.driver_email)
+                driver_obj = db.session.get(Driver, last_inactive_ride_db.driver_email)
                 driver_name_inactive = driver_obj.name if driver_obj else last_inactive_ride_db.driver_email
                 msg = f"Previous request to {driver_name_inactive} was {last_inactive_ride_db.status}."
                 if last_inactive_ride_db.status == 'superseded': 
@@ -804,58 +831,56 @@ def user_dashboard():
 @app.route('/user-home')
 @login_required_user
 def user_home(): 
-    response = make_response(render_template('user_home.html', user=User.query.get(session.get('user'))))
+    response = make_response(render_template('user_home.html', user=db.session.get(User, session.get('user'))))
     return add_no_cache_to_response(response)
 
 @app.route('/driver-home')
 @login_required_driver
 def driver_home(): 
-    response = make_response(render_template('driver_home.html', driver=Driver.query.get(session.get('driver'))))
+    response = make_response(render_template('driver_home.html', driver=db.session.get(Driver, session.get('driver'))))
     return add_no_cache_to_response(response)
 
 @app.route('/user-about')
 @login_required_user 
 def user_about(): 
-    user = User.query.get(session.get('user')) 
+    user = db.session.get(User, session.get('user')) 
     response = make_response(render_template('user_about.html', user=user)) 
     return add_no_cache_to_response(response)
 
 @app.route('/driver-about')
 @login_required_driver
 def driver_about(): 
-    response = make_response(render_template('driver_about.html'))
+    response = make_response(render_template('driver_about.html', driver=db.session.get(Driver, session.get('driver'))))
     return add_no_cache_to_response(response)
 
 @app.route('/user-history') 
 @login_required_user
 def user_history():
     reqs_db = RideRequest.query.filter_by(user_email=session['user']).order_by(RideRequest.timestamp.desc()).all()
-    s_reqs = [{'driver_name': (Driver.query.get(r.driver_email).name or r.driver_email if Driver.query.get(r.driver_email) else "N/A"), 
+    s_reqs = [{'driver_name': (db.session.get(Driver, r.driver_email).name or r.driver_email if db.session.get(Driver, r.driver_email) else "N/A"), 
                'status': r.status, 'timestamp': format_datetime_npt(r.timestamp)} for r in reqs_db]
-    response = make_response(render_template('user_history.html', requests=s_reqs))
+    response = make_response(render_template('user_history.html', requests=s_reqs, user=db.session.get(User, session.get('user'))))
     return add_no_cache_to_response(response)
 
 @app.route('/driver-history')
 @login_required_driver
 def driver_history():
     reqs_db = RideRequest.query.filter_by(driver_email=session['driver']).order_by(RideRequest.timestamp.desc()).all()
-    s_reqs = [{'user_name': (User.query.get(r.user_email).name or r.user_email if User.query.get(r.user_email) else "N/A"), 
+    s_reqs = [{'user_name': (db.session.get(User, r.user_email).name or r.user_email if db.session.get(User, r.user_email) else "N/A"), 
                'status': r.status, 'timestamp': format_datetime_npt(r.timestamp)} for r in reqs_db]
-    response = make_response(render_template('driver_history.html', requests=s_reqs))
+    response = make_response(render_template('driver_history.html', requests=s_reqs, driver=db.session.get(Driver, session.get('driver'))))
     return add_no_cache_to_response(response)
 
 @app.route('/your-driver-route')
 @login_required_driver
 def your_driver_route_function():
-    driver = Driver.query.get(session.get('driver'))
+    driver = db.session.get(Driver, session.get('driver'))
     if not driver: 
         flash("Driver information not found for this session.", "error")
         session.clear()
         return redirect(url_for('login'))
     
-    # ensure driver is passed here
-    response = make_response(render_template('the_driver_template.html', driver=driver ))
-    return add_no_cache_to_response(response)
+    return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 def logout(): 
@@ -866,7 +891,7 @@ def logout():
 @app.route('/edit-user-profile', methods=['GET', 'POST'])
 @login_required_user
 def edit_user_profile():
-    user = User.query.get(session['user'])
+    user = db.session.get(User, session['user'])
     if not user: 
         flash('User not found.', 'error')
         return redirect(url_for('login'))
@@ -880,21 +905,28 @@ def edit_user_profile():
 
         # update name and phone if provided and different
         if new_name and new_name != user.name:
-            user.name = new_name
-            flash('Name updated successfully.', 'success')
+            if 2 <= len(new_name) <= 100:
+                user.name = new_name
+                flash('Name updated successfully.', 'success')
+            else:
+                flash('Name must be between 2 and 100 characters.', 'error')
         
         if new_phone and new_phone != user.phone:
-            # add phone number validation if needed
-            user.phone = new_phone
-            flash('Phone number updated successfully.', 'success')
+            if is_valid_phone_number(new_phone):
+                user.phone = new_phone
+                flash('Phone number updated successfully.', 'success')
+            else:
+                flash("Phone number must be 10 digits and start with '9'.", 'error')
 
         # update password if new password is provided and matches confirmation
         if new_password:
-           if new_password == confirm_password:
-              user.password = generate_password_hash(new_password) # Hash the new password
-              flash('Password updated successfully.', 'success')
-        else:
-              flash('New passwords do not match. Password not updated.', 'error')
+            if len(new_password) < 8:
+                flash('New password must be at least 8 characters long.', 'error')
+            elif new_password != confirm_password:
+                flash('New passwords do not match. Password not updated.', 'error')
+            else:
+                user.password = generate_password_hash(new_password) # Hash the new password
+                flash('Password updated successfully.', 'success')
         
         try:
             db.session.commit()
@@ -910,7 +942,7 @@ def edit_user_profile():
 @app.route('/edit-driver-profile', methods=['GET', 'POST'])
 @login_required_driver
 def edit_driver_profile():
-    driver = Driver.query.get(session['driver'])
+    driver = db.session.get(Driver, session['driver'])
     if not driver:
         flash('Driver not found.', 'error')
         return redirect(url_for('login'))
@@ -924,12 +956,18 @@ def edit_driver_profile():
         confirm_password = request.form.get('confirm_password', '').strip()
 
         if new_name and new_name != driver.name:
-            driver.name = new_name
-            flash('Name updated.', 'success')
+            if 2 <= len(new_name) <= 100:
+                driver.name = new_name
+                flash('Name updated.', 'success')
+            else:
+                flash('Name must be between 2 and 100 characters.', 'error')
         
         if new_phone and new_phone != driver.phone:
-            driver.phone = new_phone
-            flash('Phone updated.', 'success')
+            if is_valid_phone_number(new_phone):
+                driver.phone = new_phone
+                flash('Phone updated.', 'success')
+            else:
+                flash("Phone number must be 10 digits and start with '9'.", 'error')
 
         if new_vehicle and new_vehicle != driver.vehicle:
             driver.vehicle = new_vehicle
@@ -943,9 +981,13 @@ def edit_driver_profile():
 
 
         if new_password:
-           if new_password == confirm_password:
-              driver.password = generate_password_hash(new_password) # Hash the new password
-              flash('Password updated.', 'success')
+            if len(new_password) < 8:
+                flash('New password must be at least 8 characters long.', 'error')
+            elif new_password != confirm_password:
+                flash('New passwords do not match.', 'error')
+            else:
+                driver.password = generate_password_hash(new_password) # Hash the new password
+                flash('Password updated.', 'success')
         
         try:
             db.session.commit()
@@ -962,7 +1004,7 @@ def edit_driver_profile():
 @app.route('/admin/dashboard')
 @login_required_admin
 def admin_dashboard():
-    admin = Admin.query.get(session['admin'])
+    admin = db.session.get(Admin, session['admin'])
     unapproved_drivers = Driver.query.filter_by(is_approved=False).all()
     
     # Some quick stats for the dashboard
@@ -984,14 +1026,12 @@ def admin_dashboard():
 @app.route('/admin/approve-driver/<driver_email>', methods=['POST'])
 @login_required_admin
 def approve_driver(driver_email):
-    driver = Driver.query.get(driver_email)
+    driver = db.session.get(Driver, driver_email)
     if not driver:
         return jsonify({'success': False, 'message': 'Driver not found.'}), 404
     
     driver.is_approved = True
     db.session.commit()
-    
-    flash(f"Driver '{driver.name}' has been approved.", "success")
     return jsonify({'success': True, 'message': f"Driver {driver.name} approved."})
 
 @app.route('/admin/disapprove-driver/<driver_email>', methods=['POST'])
@@ -1009,14 +1049,12 @@ def disapprove_driver(driver_email):
     
     db.session.delete(driver)
     db.session.commit()
-    
-    flash(f"Pending registration for '{driver_name}' has been disapproved and removed.", "success")
     return jsonify({'success': True, 'message': f"Pending registration for {driver_name} removed."})
 
 @app.route('/admin/manage-users')
 @login_required_admin
 def manage_users():
-    admin = Admin.query.get(session['admin'])
+    admin = db.session.get(Admin, session['admin'])
     all_users = User.query.all()
     response = make_response(render_template('admin_manage_users.html', admin=admin, users=all_users))
     return add_no_cache_to_response(response)
@@ -1024,7 +1062,7 @@ def manage_users():
 @app.route('/admin/manage-drivers')
 @login_required_admin
 def manage_drivers():
-    admin = Admin.query.get(session['admin'])
+    admin = db.session.get(Admin, session['admin'])
     all_drivers = Driver.query.order_by(Driver.is_approved.asc()).all()
     response = make_response(render_template('admin_manage_drivers.html', admin=admin, drivers=all_drivers))
     return add_no_cache_to_response(response)
@@ -1032,7 +1070,7 @@ def manage_drivers():
 @login_required_admin
 def delete_user(user_email):
     # Find the user to be deleted from the User table.
-    user = User.query.get(user_email)
+    user = db.session.get(User, user_email)
     
     if not user:
         return jsonify({'success': False, 'message': 'User not found.'}), 404
@@ -1047,8 +1085,6 @@ def delete_user(user_email):
         RideRequest.query.filter_by(user_email=user_email).update({"user_email": "deleted_user@gmail.com"})
         
         db.session.commit()
-        
-        flash(f"User '{user_name}' and their associated ride records have been permanently deleted.", "success")
         return jsonify({'success': True, 'message': f"User {user_name} has been deleted."})
 
     except Exception as e:
@@ -1060,7 +1096,7 @@ def delete_user(user_email):
 @login_required_admin
 def delete_driver(driver_email):
     # Find the driver to be deleted.
-    driver = Driver.query.get(driver_email)
+    driver = db.session.get(Driver, driver_email)
     
     if not driver:
         # If the driver doesn't exist, return an error.
@@ -1078,8 +1114,6 @@ def delete_driver(driver_email):
         RideRequest.query.filter_by(driver_email=driver_email).update({"driver_email": "deleted_driver@gmail.com"})
 
         db.session.commit() # Commit the changes to the database.
-        
-        flash(f"Driver '{driver_name}' and their associated ride records have been permanently deleted.", "success")
         return jsonify({'success': True, 'message': f"Driver {driver_name} has been deleted."})
 
     except Exception as e:
@@ -1090,13 +1124,13 @@ def delete_driver(driver_email):
 @app.route('/admin/ride-history')
 @login_required_admin
 def global_ride_history():
-    admin = Admin.query.get(session['admin'])
+    admin = db.session.get(Admin, session['admin'])
     all_rides = RideRequest.query.order_by(RideRequest.timestamp.desc()).all()
     
     enriched_rides = []
     for ride in all_rides:
-        user = User.query.get(ride.user_email)
-        driver = Driver.query.get(ride.driver_email)
+        user = db.session.get(User, ride.user_email)
+        driver = db.session.get(Driver, ride.driver_email)
         enriched_rides.append({
             'ride': ride,
             'user_name': user.name if user else 'N/A',
@@ -1167,5 +1201,7 @@ def handle_chat_message(data):
 
 
 if __name__ == '__main__':
-    print("Starting Flask-SocketIO server with eventlet...")
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', '1') == '1'
+    port = int(os.environ.get('PORT', 5000))
+    print(f"Starting Flask-SocketIO server with async mode '{socketio.async_mode}' on port {port}...")
+    socketio.run(app, debug=debug_mode, host='0.0.0.0', port=port, use_reloader=False, allow_unsafe_werkzeug=True)

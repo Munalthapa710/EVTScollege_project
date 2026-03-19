@@ -2,50 +2,40 @@
 
 {% block content %}
 <div class="home-container driver-home">
-
     <section class="newsec-section">
         <div class="newsec-text">
-            <h1>Ready for Duty, <span class="highlight">{{ driver.name }}</span>!</h1>
+            <h1>Ready for duty, <span class="highlight">{{ driver.name }}</span>.</h1>
             <p>
-                Your role is vital to our community's safety. Your readiness and quick response save lives. Thank you for your service.
+                Your dashboard is built for quick response: incoming ride requests, live routing, and a direct communication channel with the user you are assisting.
             </p>
-            <a href="{{ url_for('dashboard') }}" class="cta-button">
-                View Your Dashboard »
-            </a>
+            <a href="{{ url_for('dashboard') }}" class="cta-button">Open response dashboard</a>
         </div>
         <div class="newsec-image">
             <img src="{{ url_for('static', filename='images/img1.png') }}" alt="Emergency Vehicle Illustration">
         </div>
     </section>
 
-    <!--  Reinforces the driver's role -->
     <section class="features-section">
-        <h2>Your Mission-Critical Tools</h2>
+        <h2>Mission-critical tools</h2>
         <div class="features-grid">
-            
             <div class="feature-card">
-                
                 <img src="{{ url_for('static', filename='images/lrb.jpg') }}" alt="Live Requests Icon">
-                <h3>Live Request Board</h3>
-                <p>Your dashboard provides instant alerts for new ride requests in your operational area. Accept and get moving instantly.</p>
+                <h3>Live request board</h3>
+                <p>See new ride requests as they arrive and act immediately without refreshing the page.</p>
             </div>
-            
+
             <div class="feature-card">
-                
                 <img src="{{ url_for('static', filename='images/m2.png') }}" alt="Efficient Routing Icon">
-                <h3>Efficient Routing</h3>
-                <p>Once you accept a request, the system provides a clear route to the user's location, helping you navigate quickly and safely.</p>
+                <h3>Efficient routing</h3>
+                <p>Accepted rides open a clear route to the user so dispatch decisions turn into movement quickly.</p>
             </div>
 
             <div class="feature-card">
-                
                 <img src="{{ url_for('static', filename='images/23.png') }}" alt="Community Impact Icon">
-                <h3>Community Impact</h3>
-                <p>Every call you answer makes a difference. Your history tab tracks your completed responses and contributions.</p>
+                <h3>Response history</h3>
+                <p>Track completed work and keep a clear record of the requests you have handled.</p>
             </div>
-
         </div>
     </section>
-
 </div>
 {% endblock %}

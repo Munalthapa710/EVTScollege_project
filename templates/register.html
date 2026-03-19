@@ -78,9 +78,9 @@
                     </div>
                     <div class="form-group">
                         <label for="phone">Phone Number</label>
-                        <input type="tel" name="phone" id="phone" placeholder="+977" value="{{ form_data.get('phone', '') }}" 
-                               required pattern="^\+?[\d\s\-()]{10,10}$"
-                               title="Enter a valid phone number .">
+                        <input type="tel" name="phone" id="phone" placeholder="98XXXXXXXX" value="{{ form_data.get('phone', '') }}" 
+                               required pattern="^9\d{9}$"
+                               title="Enter a 10-digit phone number that starts with 9.">
                     </div>
                     <div class="form-group">
                         <label for="password">Password</label>
@@ -96,7 +96,7 @@
                     <div id="driver-specific-fields" style="display: none;"> 
                         <div class="form-group">
                             <label for="vehicle">Vehicle Type</label>
-                            <input type="text" name="vehicle" id="vehicle" placeholder="Enter your vechile" 
+                            <input type="text" name="vehicle" id="vehicle" placeholder="Enter your vehicle" 
                                    value="{{ form_data.get('vehicle', '') }}" 
                                    minlength="2" maxlength="50"> {# required is set by JS #}
                         </div>
@@ -122,6 +122,24 @@
             </div>
         </div>
         <div class="auth-illustration-section">  
+            <div class="hero-copy">
+                <h2>Built for users, responders, and dispatch operations.</h2>
+                <p>Create an account, join the live network, and keep emergency coordination visible from request to arrival.</p>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <strong>3 roles</strong>
+                    <span>user, driver, admin</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>Smart</strong>
+                    <span>nearest-driver dispatch</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>Real-time</strong>
+                    <span>updates and chat</span>
+                </div>
+            </div>
             <img src="{{ url_for('static', filename='images/img1.png') }}" alt="System Illustration">
         </div>
     </div>

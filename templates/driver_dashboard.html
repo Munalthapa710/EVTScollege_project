@@ -288,7 +288,7 @@
             // Listen for new ride requests from the server
             socket.on('new_ride_request', function(data) {
      console.log('[DRIVER DASH] Received new_ride_request, updating UI dynamically:', data);
-     alert(`New Ride Request: From ${data.user_name}`);
+     showToast(`New ride request from ${data.user_name}.`, 'info');
  
      // Add new request data to our global list for consistency
      pendingRequestsDataGlobal.push(data);
@@ -372,7 +372,7 @@
       clearRouteAndAcceptedUserMarker();
       if (!userLatLng || typeof userLatLng.lat !== 'number' || typeof userLatLng.lng !== 'number') {
           console.error(`Driver: User location (lat/lng) for routing is INVALID. Cannot draw route.`);
-          alert(`Error: User's location data for this ride is invalid. Cannot draw route.`);
+          showToast("User location data for this ride is invalid. Cannot draw route.", 'error');
           return;
       }
       const driverCurrentLatLng = driverLiveMarker.getLatLng();
@@ -443,14 +443,16 @@
                  updateActiveRideDisplay(true);
                  showChatBox(acceptedReqDetails);
              } else {
-                 alert("Request accepted, but location data is missing. Page will reload as a fallback.");
+                 showToast("Request accepted, but location data is missing. Reloading as fallback.", 'warning');
                  location.reload(); // Only reload if there's an error
              }
+         } else {
+             showToast(data.message || 'Ride request rejected.', 'info');
          }
      })
      .catch(error => {
          console.error("Driver: Failed to update request status:", error);
-         alert(`Operation failed: ${error.message}`);
+         showToast(`Operation failed: ${error.message}`, 'error');
          // Re-enable the buttons if the request failed to send
          if (requestItemDiv) {
              requestItemDiv.querySelectorAll('button').forEach(btn => btn.disabled = false);
@@ -458,17 +460,17 @@
      });
  };
     window.markRideCompleted = function() {
-        if (!activeRideDataForCompletion || !activeRideDataForCompletion.id) { alert("No active ride selected."); return; }
+        if (!activeRideDataForCompletion || !activeRideDataForCompletion.id) { showToast("No active ride selected.", 'warning'); return; }
         hideChatBox();
         const rideIdToComplete = activeRideDataForCompletion.id;
         fetch('/complete-ride', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ ride_id: rideIdToComplete }) })
         .then(res => res.json()).then(data => {
             if (data.success) {
-                alert(data.message); clearRouteAndAcceptedUserMarker(); activeRideDataForCompletion = null; updateActiveRideDisplay(false); location.reload();
+                showToast(data.message, 'success'); clearRouteAndAcceptedUserMarker(); activeRideDataForCompletion = null; updateActiveRideDisplay(false); location.reload();
             } else {
                 throw new Error(data.error || "Failed to complete ride.");
             }
-        }).catch(error => { console.error("Error completing ride:", error); alert(`Error: ${error.message}`); });
+        }).catch(error => { console.error("Error completing ride:", error); showToast(`Error: ${error.message}`, 'error'); });
     };
 </script>
 {% endblock %}
