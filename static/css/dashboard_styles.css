@@ -345,8 +345,12 @@ nav.admin-navbar {
     gap: 10px;
 }
 
+.request-actions > * {
+    flex: 0 0 auto;
+}
+
 .data-table {
-    overflow: hidden;
+    overflow-x: auto;
 }
 
 .data-table table {
@@ -355,6 +359,7 @@ nav.admin-navbar {
     border: 0;
     border-radius: 0;
     background: transparent;
+    min-width: 720px;
 }
 
 .table-meta {
@@ -393,6 +398,35 @@ nav.admin-navbar {
     background: #eff6ff;
     color: #1d4ed8;
     border-color: rgba(29, 78, 216, 0.14);
+}
+
+.vehicle-marker {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    border: 3px solid rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 24px rgba(15, 23, 42, 0.22);
+    font-size: 1rem;
+}
+
+.vehicle-marker.state-default {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.vehicle-marker.state-on-route {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.vehicle-marker.state-preview {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
+.vehicle-marker.state-driver {
+    background: linear-gradient(135deg, #1f2937, #475569);
 }
 
 .empty-state {
@@ -1190,8 +1224,37 @@ tbody tr:hover {
         grid-template-columns: 1fr;
     }
 
+    .page-hero,
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .control-panel,
+    .table-panel,
+    .map-panel {
+        padding: 20px;
+    }
+
+    .filters-row {
+        align-items: stretch;
+    }
+
+    .filters-row label {
+        width: 100%;
+    }
+
+    .filters-row .role-select,
+    .filters-row button {
+        width: 100%;
+    }
+
+    .request-actions > * {
+        flex: 1 1 180px;
+    }
+
     .map-container-inner {
-        height: 460px;
+        height: 420px;
     }
 }
 
@@ -1203,6 +1266,16 @@ tbody tr:hover {
 
     nav.navbar {
         padding: 16px 14px;
+    }
+
+    nav.navbar .nav-links {
+        gap: 8px;
+    }
+
+    nav.navbar .nav-links a {
+        width: calc(50% - 4px);
+        justify-content: center;
+        text-align: center;
     }
 
     .newsec-section,
@@ -1217,14 +1290,134 @@ tbody tr:hover {
         padding: 20px;
     }
 
-    .map-container-inner {
-        height: 400px;
+    .page-hero {
+        padding: 20px;
     }
 
-    th,
-    td {
-        padding: 12px !important;
+    .hero-chip {
+        align-self: flex-start;
+    }
+
+    .control-panel,
+    .table-panel {
+        padding: 18px;
+    }
+
+    .map-panel {
+        padding: 10px;
+    }
+
+    .location-banner {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .kpi-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .request-card-head,
+    .table-meta {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .request-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .request-actions {
+        flex-direction: column;
+    }
+
+    .request-actions > * {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
+    .map-container-inner {
+        height: 320px;
+    }
+
+    #map {
+        min-height: 320px;
+    }
+
+    .data-table {
+        overflow: visible;
+    }
+
+    .data-table table,
+    .data-table thead,
+    .data-table tbody,
+    .data-table tr,
+    .data-table th,
+    .data-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .data-table table {
+        min-width: 0;
+    }
+
+    .data-table thead {
+        display: none;
+    }
+
+    .data-table tbody {
+        display: grid;
+        gap: 14px;
+    }
+
+    .data-table tr {
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .data-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 10px 0 !important;
+        border-bottom: 1px solid #eef2f7;
         font-size: 0.92rem;
+        text-align: right;
+    }
+
+    .data-table td::before {
+        content: attr(data-label);
+        min-width: 110px;
+        color: #64748b;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: left;
+    }
+
+    .data-table td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0 !important;
+    }
+
+    .data-table td[data-label="Actions"] {
+        display: block;
+        text-align: left;
+    }
+
+    .data-table td[data-label="Actions"]::before {
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    .data-table td[data-label="Actions"] .request-actions,
+    .data-table td[data-label="Actions"] button {
+        width: 100%;
     }
 
     .toast-stack {

@@ -51,6 +51,15 @@ def format_datetime_npt(dt_utc):
 def is_valid_phone_number(phone_number):
     return bool(PHONE_PATTERN.match(phone_number))
 
+def email_exists_anywhere(email):
+    return any(
+        (
+            Admin.query.filter_by(email=email).first(),
+            User.query.filter_by(email=email).first(),
+            Driver.query.filter_by(email=email).first(),
+        )
+    )
+
 # Database 
 class Admin(db.Model):
     __tablename__ = 'admin'
@@ -340,13 +349,8 @@ def register():
             elif node_from_form not in coordinates:
                  errors.append(f"Invalid location node ('{node_from_form}') selected. Please choose from the list.")
 
-        if not errors: 
-            if role == 'driver':
-                if Driver.query.filter_by(email=email).first():
-                    errors.append(f"A driver account with the email '{email}' already exists.")
-            else: 
-                if User.query.filter_by(email=email).first(): 
-                    errors.append(f"A user account with the email '{email}' already exists.")
+        if not errors and email_exists_anywhere(email):
+            errors.append(f"An account with the email '{email}' already exists. Please use a different email.")
         
         if errors:
             for error_msg in errors:
@@ -382,49 +386,50 @@ def register():
 def login():
     form_data_to_pass = {} # Initialize for GET request
     if request.method == 'POST':
-        role = request.form.get('role')
         # Use .get with a default empty string and .strip() for safety
         email = request.form.get('username', '').strip().lower() 
         password = request.form.get('password', '')
         # Store submitted data to pass back to template if login fails
         form_data_to_pass = request.form.to_dict() 
 
-        if not email or not password or not role:
-            flash("All fields (Email, Password, Role) are required.", "error")
+        if not email or not password:
+            flash("Email and password are required.", "error")
             return render_template('login.html', form_data=form_data_to_pass)
 
-        login_successful = False
-        if role == 'driver':
-            driver = Driver.query.filter_by(email=email).first() # Query by normalized email
-            if driver and check_password_hash(driver.password, password):
-                if not driver.is_approved:
-                    flash('Your driver account is pending approval from an administrator.', 'warning')
-                    return render_template('login.html', form_data=form_data_to_pass)
-                session['driver'] = driver.email
-                flash(f'Welcome,', 'success')
-                login_successful = True
-                return redirect(url_for('driver_home'))
-            
-        elif role == 'user':
-             user = User.query.filter_by(email=email).first() #sqlinjection
-             if user and check_password_hash(user.password, password): 
-                session['user'] = user.email
-                flash(f'Welcome', 'success')
-                login_successful = True
-                return redirect(url_for('user_home'))
-        
-        elif role == 'admin':
-            admin = Admin.query.filter_by(email=email).first()
-            if admin and check_password_hash(admin.password, password):
-                session['admin'] = admin.email
-                flash(f'Welcome, Administrator {admin.name}!', 'success')
-                return redirect(url_for('admin_dashboard'))
-            
-        # If login was not successful after checking both roles
-        if not login_successful:
-            flash('Invalid email, password, or role. Please try again.', 'error')
-            form_data_to_pass.pop('password', None)  # Re-render the login page with an error message and pre-filled email (but not password)
+        admin = Admin.query.filter_by(email=email).first()
+        driver = Driver.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email).first()
+
+        matching_accounts = []
+
+        if admin and check_password_hash(admin.password, password):
+            matching_accounts.append(('admin', admin.email, url_for('admin_dashboard'), f'Welcome, Administrator {admin.name}!'))
+
+        if driver and check_password_hash(driver.password, password):
+            if not driver.is_approved:
+                flash('Your driver account is pending approval from an administrator.', 'warning')
+                form_data_to_pass.pop('password', None)
+                return render_template('login.html', form_data=form_data_to_pass)
+            matching_accounts.append(('driver', driver.email, url_for('driver_home'), f'Welcome, {driver.name}!'))
+
+        if user and check_password_hash(user.password, password):
+            matching_accounts.append(('user', user.email, url_for('user_home'), f'Welcome, {user.name}!'))
+
+        if len(matching_accounts) == 1:
+            role_key, account_email, destination, welcome_message = matching_accounts[0]
+            session.clear()
+            session[role_key] = account_email
+            flash(welcome_message, 'success')
+            return redirect(destination)
+
+        if len(matching_accounts) > 1:
+            flash('Multiple accounts matched this email. Please contact the administrator to keep one unique account per email.', 'error')
+            form_data_to_pass.pop('password', None)
             return render_template('login.html', form_data=form_data_to_pass)
+
+        flash('Invalid email or password. Please try again.', 'error')
+        form_data_to_pass.pop('password', None)  # Re-render the login page with an error message and pre-filled email (but not password)
+        return render_template('login.html', form_data=form_data_to_pass)
             
     # For GET request, render the login page
     return render_template('login.html', form_data=form_data_to_pass)

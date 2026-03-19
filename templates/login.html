@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Emergency Vehicle Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"> {# Or your professional theme CSS #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="auth-container"> 
+    <div class="auth-container">
         <div class="auth-form-section">
             <div class="auth-form-wrapper">
                 <div class="logo-container">
@@ -16,13 +16,11 @@
                     <p class="logo-tagline">Emergency Vehicle Tracking System</p>
                 </div>
 
-                {# --- Display Flashed Messages --- #}
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     <ul class="flashes" style="list-style-type: none; padding-left: 0; margin-bottom: 1.5rem;">
                     {% for category, message in messages %}
-                      {# Use specific classes for styling if defined in your CSS #}
-                      <li class="{{ category }} auth-flash-{{category}}" 
+                      <li class="{{ category }} auth-flash-{{ category }}"
                           style="padding: 0.75rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent; border-radius: .25rem;">
                           {{ message }}
                       </li>
@@ -30,35 +28,27 @@
                     </ul>
                   {% endif %}
                 {% endwith %}
-                {# --- End Flashed Messages --- #}
 
                 <form method="POST" action="{{ url_for('login') }}" class="auth-form">
                     <div class="form-group">
                         <label for="username">Email</label>
-                        {# Pre-fill email if form_data exists #}
-                        <input type="text" name="username" id="username" placeholder="Enter your email" 
+                        <input type="text" name="username" id="username" placeholder="Enter your email"
                                value="{{ form_data.get('username', '') }}" required>
                     </div>
                     <div class="form-group">
                         <label for="password">Password</label>
-                        <input type="password" name="password" id="password" placeholder="••••••••" required>
+                        <input type="password" name="password" id="password" placeholder="Enter your password" required>
                     </div>
-                    <div class="form-group">
-                        <label for="role">Role</label>
-                        <select name="role" id="role" class="role-select">
-                             {# Pre-select role if form_data exists #}
-                            <option value="user" {% if form_data.get('role') == 'user' %}selected{% endif %}>User</option>
-                            <option value="driver" {% if form_data.get('role') == 'driver' %}selected{% endif %}>Driver</option>
-                            <option value="admin" {% if form_data.get('role') == 'admin' %}selected{% endif %}>Admin</option>
-                        </select>
-                    </div>
+                    <p class="terms-text-footer" style="text-align: left; margin-top: 0; margin-bottom: 16px;">
+                        EVTS will detect your account type automatically and redirect you to the correct dashboard.
+                    </p>
                     <button type="submit" class="btn-submit">Sign In</button>
                 </form>
 
                 <div class="auth-switch">
                     <p>Don't have an account? <a href="{{ url_for('register') }}">Sign up</a></p>
                 </div>
-                 <p class="terms-text-footer" style="text-align: center; font-size: 0.8em; color: #888; margin-top: 20px;">
+                <p class="terms-text-footer" style="text-align: center; font-size: 0.8em; color: #888; margin-top: 20px;">
                     By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
                 </p>
             </div>
@@ -85,15 +75,5 @@
             <img src="{{ url_for('static', filename='images/img1.png') }}" alt="System Illustration">
         </div>
     </div>
-     <script>
-
-        window.onload = function() {
-            const selectedRole = "{{ form_data.get('role', 'user') }}"; 
-            const roleSelect = document.getElementById('role');
-            if (roleSelect && selectedRole) {
-                roleSelect.value = selectedRole;
-            }
-        };
-    </script>
 </body>
 </html>

@@ -55,12 +55,12 @@
             <tbody>
             {% for driver in unapproved_drivers %}
             <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
-                <td>{{ driver.name }}</td>
-                <td>{{ driver.email }}</td>
-                <td>{{ driver.phone }}</td>
-                <td>{{ driver.vehicle }}</td>
-                <td>{{ driver.node }}</td>
-                <td>
+                <td data-label="Name">{{ driver.name }}</td>
+                <td data-label="Email">{{ driver.email }}</td>
+                <td data-label="Phone">{{ driver.phone }}</td>
+                <td data-label="Vehicle">{{ driver.vehicle }}</td>
+                <td data-label="Node">{{ driver.node }}</td>
+                <td data-label="Actions">
                     <div class="request-actions">
                         <button class="btn-confirm" onclick="approveDriver('{{ driver.email }}')">Approve</button>
                         <button class="btn-cancel" onclick="disapproveDriver('{{ driver.email }}')">Disapprove</button>

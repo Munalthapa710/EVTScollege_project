@@ -103,6 +103,26 @@
     font-size: 1.5em; 
     line-height: 1;
 }
+@media (max-width: 680px) {
+    .chat-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+        max-width: none;
+        border-radius: 18px;
+    }
+    .chat-header {
+        padding: 12px 14px;
+    }
+    .chat-messages {
+        height: 180px;
+        padding: 8px;
+    }
+    .chat-input-form {
+        padding: 8px;
+    }
+}
     </style>
 {% endblock %} {% block content %}
 <div class="dashboard-shell">
@@ -222,9 +242,28 @@
     const fallbackLatLng = L.latLng(27.7172, 85.3240);
 
     const userIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
-    const genericDriverIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
-    const enRouteDriverIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
-    const previewDriverIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+    function getVehicleMarkerMeta(vehicleType) {
+        const normalizedVehicle = (vehicleType || '').toLowerCase();
+        if (normalizedVehicle.includes('ambulance')) return { iconClass: 'fas fa-ambulance', label: 'Ambulance' };
+        if (normalizedVehicle.includes('fire')) return { iconClass: 'fas fa-fire-extinguisher', label: 'Fire Response' };
+        if (normalizedVehicle.includes('police')) return { iconClass: 'fas fa-shield-alt', label: 'Police Vehicle' };
+        if (normalizedVehicle.includes('bike') || normalizedVehicle.includes('motor')) return { iconClass: 'fas fa-motorcycle', label: 'Bike Responder' };
+        if (normalizedVehicle.includes('taxi')) return { iconClass: 'fas fa-taxi', label: 'Taxi Response' };
+        if (normalizedVehicle.includes('excavator') || normalizedVehicle.includes('truck')) return { iconClass: 'fas fa-truck', label: 'Heavy Vehicle' };
+        return { iconClass: 'fas fa-car-side', label: vehicleType || 'Response Vehicle' };
+    }
+
+    function createVehicleIcon(vehicleType, state) {
+        const meta = getVehicleMarkerMeta(vehicleType);
+        const markerState = state || 'default';
+        return L.divIcon({
+            className: '',
+            html: `<div class="vehicle-marker state-${markerState}" title="${meta.label}"><i class="${meta.iconClass}"></i></div>`,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+            popupAnchor: [0, -18]
+        });
+    }
 const hospitalIcon = new L.Icon({
         iconUrl: "{{ url_for('static', filename='images/hospital-icon.png') }}",
         iconSize: [35, 35], iconAnchor: [17, 35], popupAnchor: [0, -35]
@@ -448,17 +487,17 @@ window.routeToService = function(markerId) {
                 typeof driverCoordsArray[0] === 'number' && typeof driverCoordsArray[1] === 'number') {
                 
                 const driverLatLng = L.latLng(driverCoordsArray[0], driverCoordsArray[1]); 
-                let iconToUse = genericDriverIcon;
+                let iconToUse = createVehicleIcon(driver.vehicle, 'default');
                 let popupText = `Driver: ${driver.name}<br>Vehicle: ${driver.vehicle || 'N/A'}`; 
                 let zIndexOffset = 0; 
 
             
                 if (currentRideStatusFromServer && currentRideStatusFromServer.type === 'accepted' && currentRideStatusFromServer.driver_name === driver.name) {
-                    iconToUse = enRouteDriverIcon;
+                    iconToUse = createVehicleIcon(driver.vehicle, 'on-route');
                     popupText = `<b>Your Driver: ${driver.name} (On the way)</b><br>Vehicle: ${driver.vehicle || 'N/A'}`;
                     zIndexOffset = 1000;
                 } else if (currentNearestDriverForConfirmation && currentNearestDriverForConfirmation.email === driver.email) {
-                    iconToUse = previewDriverIcon;
+                    iconToUse = createVehicleIcon(driver.vehicle, 'preview');
                     popupText = `<b>Nearest: ${driver.name}</b><br>Vehicle: ${driver.vehicle || 'N/A'}<br>(Preview)`;
                     zIndexOffset = 500;
                 }
@@ -822,8 +861,8 @@ socket.on('receive_chat_message', function(data)
     { if (previewDijkstraPathLayer) 
         { map.removeLayer(previewDijkstraPathLayer); 
             previewDijkstraPathLayer = null; } 
-            if (currentNearestDriverForConfirmation && allDriverMapMarkers[currentNearestDriverForConfirmation.email]) { let iconR = genericDriverIcon;
-                 if (currentRideStatusFromServer && currentRideStatusFromServer.type === 'accepted' && currentRideStatusFromServer.driver_name === currentNearestDriverForConfirmation.name) iconR = enRouteDriverIcon;
+            if (currentNearestDriverForConfirmation && allDriverMapMarkers[currentNearestDriverForConfirmation.email]) { let iconR = createVehicleIcon(currentNearestDriverForConfirmation.vehicle, 'default');
+                 if (currentRideStatusFromServer && currentRideStatusFromServer.type === 'accepted' && currentRideStatusFromServer.driver_name === currentNearestDriverForConfirmation.name) iconR = createVehicleIcon(currentNearestDriverForConfirmation.vehicle, 'on-route');
                   try{allDriverMapMarkers[currentNearestDriverForConfirmation.email].setIcon(iconR).setZIndexOffset(0);}catch(e){} } }
     //444drawingroutes              
     function drawMainAcceptedRoute(usrLtLng, drvLtLng) { clearMainAcceptedRoute(); console.log("[UserDash] Drawing MAIN accepted route between User:", usrLtLng.toString(), "and Driver:", drvLtLng.toString()); 

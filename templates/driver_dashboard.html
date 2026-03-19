@@ -103,6 +103,26 @@
     font-size: 1.5em; 
     line-height: 1;
 }
+@media (max-width: 680px) {
+    .chat-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+        max-width: none;
+        border-radius: 18px;
+    }
+    .chat-header {
+        padding: 12px 14px;
+    }
+    .chat-messages {
+        height: 180px;
+        padding: 8px;
+    }
+    .chat-input-form {
+        padding: 8px;
+    }
+}
     </style>
     {% endblock %} {% block content %}
 <div class="dashboard-shell">
@@ -227,7 +247,30 @@
     let activeRideDataForCompletion = null;
     let activeRideForChat = null;
 
-    const driverIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+    function getVehicleMarkerMeta(vehicleType) {
+        const normalizedVehicle = (vehicleType || '').toLowerCase();
+        if (normalizedVehicle.includes('ambulance')) return { iconClass: 'fas fa-ambulance', label: 'Ambulance' };
+        if (normalizedVehicle.includes('fire')) return { iconClass: 'fas fa-fire-extinguisher', label: 'Fire Response' };
+        if (normalizedVehicle.includes('police')) return { iconClass: 'fas fa-shield-alt', label: 'Police Vehicle' };
+        if (normalizedVehicle.includes('bike') || normalizedVehicle.includes('motor')) return { iconClass: 'fas fa-motorcycle', label: 'Bike Responder' };
+        if (normalizedVehicle.includes('taxi')) return { iconClass: 'fas fa-taxi', label: 'Taxi Response' };
+        if (normalizedVehicle.includes('excavator') || normalizedVehicle.includes('truck')) return { iconClass: 'fas fa-truck', label: 'Heavy Vehicle' };
+        return { iconClass: 'fas fa-car-side', label: vehicleType || 'Response Vehicle' };
+    }
+
+    function createVehicleIcon(vehicleType, state) {
+        const meta = getVehicleMarkerMeta(vehicleType);
+        const markerState = state || 'driver';
+        return L.divIcon({
+            className: '',
+            html: `<div class="vehicle-marker state-${markerState}" title="${meta.label}"><i class="${meta.iconClass}"></i></div>`,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+            popupAnchor: [0, -18]
+        });
+    }
+
+    const driverIcon = createVehicleIcon("{{ driver.vehicle|escape }}", 'driver');
     const acceptedUserIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
     const pendingUserIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
 
@@ -291,7 +334,7 @@
 
           map = L.map('map').setView(driverInitialCoords, 14);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OSM' }).addTo(map);
-          driverLiveMarker = L.marker(driverInitialCoords, {icon: driverIcon}).addTo(map).bindPopup("Your Location (Driver)").openPopup();
+          driverLiveMarker = L.marker(driverInitialCoords, {icon: driverIcon}).addTo(map).bindPopup(`Your Location (${getVehicleMarkerMeta("{{ driver.vehicle|escape }}").label})`).openPopup();
 
           if (activeRideDataFromServerGlobal &&
               activeRideDataFromServerGlobal.user_latitude !== null &&

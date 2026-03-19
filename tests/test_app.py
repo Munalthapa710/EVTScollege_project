@@ -71,6 +71,33 @@ class EVTSTestCase(unittest.TestCase):
         response = self.client.get('/login')
         self.assertEqual(response.status_code, 200)
 
+    def test_login_redirects_user_without_role_selection(self):
+        response = self.client.post(
+            '/login',
+            data={'username': self.user_email, 'password': 'Password123'},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers.get('Location'), '/user-home')
+
+    def test_login_redirects_driver_without_role_selection(self):
+        response = self.client.post(
+            '/login',
+            data={'username': self.driver_email, 'password': 'Password123'},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers.get('Location'), '/driver-home')
+
+    def test_login_redirects_admin_without_role_selection(self):
+        response = self.client.post(
+            '/login',
+            data={'username': 'admin@gmail.com', 'password': 'Admin123'},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers.get('Location'), '/admin/dashboard')
+
     def test_user_profile_page_loads(self):
         self.login_session('user', self.user_email)
         response = self.client.get('/edit-user-profile')

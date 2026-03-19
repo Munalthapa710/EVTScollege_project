@@ -30,17 +30,17 @@
             <tbody>
             {% for user in users %}
             <tr id="user-row-{{ user.email.replace('@', '_').replace('.', '_') }}">
-                <td>{{ user.name }}</td>
-                <td>{{ user.email }}</td>
-                <td>{{ user.phone }}</td>
-                <td>
+                <td data-label="Name">{{ user.name }}</td>
+                <td data-label="Email">{{ user.email }}</td>
+                <td data-label="Phone">{{ user.phone }}</td>
+                <td data-label="Last Known Lat/Lng">
                     {% if user.latitude and user.longitude %}
                         {{ user.latitude|round(4) }}, {{ user.longitude|round(4) }}
                     {% else %}
                         <span class="status-pill pending">Not Set</span>
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Actions">
                     <button class="btn-cancel" onclick="deleteUser('{{ user.email }}')">Delete</button>
                 </td>
             </tr>

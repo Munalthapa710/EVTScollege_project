@@ -33,17 +33,17 @@
             <tbody>
             {% for driver in drivers %}
             <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
-                <td>
+                <td data-label="Status">
                     <span class="status-pill {% if driver.is_approved %}approved{% else %}pending{% endif %}">
                         {% if driver.is_approved %}Approved{% else %}Pending{% endif %}
                     </span>
                 </td>
-                <td>{{ driver.name }}</td>
-                <td>{{ driver.email }}</td>
-                <td>{{ driver.phone }}</td>
-                <td>{{ driver.vehicle }}</td>
-                <td>{{ driver.node }}</td>
-                <td>
+                <td data-label="Name">{{ driver.name }}</td>
+                <td data-label="Email">{{ driver.email }}</td>
+                <td data-label="Phone">{{ driver.phone }}</td>
+                <td data-label="Vehicle">{{ driver.vehicle }}</td>
+                <td data-label="Node">{{ driver.node }}</td>
+                <td data-label="Actions">
                     <button class="btn-cancel" onclick="deleteDriver('{{ driver.email }}')">Delete</button>
                 </td>
             </tr>
