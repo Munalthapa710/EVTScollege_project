@@ -1,56 +1,65 @@
 {% extends 'admin_base.html' %}
 
-{% block head_extra %}
-    <style>
-        .status-cell { font-weight: bold; }
-        .status-approved { color: #28a745; }
-        .status-pending { color: #fd7e14; }
-    </style>
-{% endblock %}
-
 {% block content %}
-<h2>Manage All Drivers</h2>
-<p>This page lists all registered drivers, both approved and pending.</p>
-<table border="1" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-    <thead>
-        <tr style="background-color: #f2f2f2;">
-            <th style="padding: 10px;">Status</th>
-            <th style="padding: 10px;">Name</th>
-            <th style="padding: 10px;">Email</th>
-            <th style="padding: 10px;">Phone</th>
-            <th style="padding: 10px;">Vehicle</th>
-            <th style="padding: 10px;">Node</th>
-             <th style="padding: 10px;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for driver in drivers %}
-    <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
-        <td class="status-cell {% if driver.is_approved %}status-approved{% else %}status-pending{% endif %}" style="padding: 10px;">
-            {% if driver.is_approved %}Approved{% else %}Pending{% endif %}
-        </td>
-        <td style="padding: 10px;">{{ driver.name }}</td>
-        <td style="padding: 10px;">{{ driver.email }}</td>
-        <td style="padding: 10px;">{{ driver.phone }}</td>
-        <td style="padding: 10px;">{{ driver.vehicle }}</td>
-        <td style="padding: 10px;">{{ driver.node }}</td>
-        <td style="padding: 10px; text-align: center;"><button class="btn-cancel" onclick="deleteDriver('{{ driver.email }}')">
-                Delete
-            </button></td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="dashboard-shell">
+    <section class="page-hero admin-hero">
+        <div>
+            <h2>Manage Drivers</h2>
+            <p>Track approval state, assigned nodes, and remove records that should no longer appear in the dispatch network.</p>
+        </div>
+        <div class="hero-chip">{{ drivers|length }} driver accounts</div>
+    </section>
+
+    <section class="table-panel data-table">
+        <div class="section-header">
+            <div>
+                <h3>Driver Directory</h3>
+                <p>This view includes both approved and pending driver accounts.</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Vehicle</th>
+                    <th>Node</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for driver in drivers %}
+            <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
+                <td>
+                    <span class="status-pill {% if driver.is_approved %}approved{% else %}pending{% endif %}">
+                        {% if driver.is_approved %}Approved{% else %}Pending{% endif %}
+                    </span>
+                </td>
+                <td>{{ driver.name }}</td>
+                <td>{{ driver.email }}</td>
+                <td>{{ driver.phone }}</td>
+                <td>{{ driver.vehicle }}</td>
+                <td>{{ driver.node }}</td>
+                <td>
+                    <button class="btn-cancel" onclick="deleteDriver('{{ driver.email }}')">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
 {% endblock %}
 {% block scripts_extra %}
 <script>
     function deleteDriver(email) {
-        // Show a confirmation dialog to prevent accidental deletion.
-        if (!confirm(`Are you absolutely sure you want to PERMANENTLY DELETE the driver '${email}'? This action cannot be undone.`)) {
+        if (!confirm(`Are you absolutely sure you want to permanently delete the driver '${email}'? This action cannot be undone.`)) {
             return;
         }
 
-        // Send a POST request to the new delete endpoint.
         fetch(`/admin/delete-driver/${email}`, {
             method: 'POST',
             headers: {
@@ -61,11 +70,9 @@
         .then(data => {
             if (data.success) {
                 showToast(data.message, 'success');
-                // If deletion was successful, remove the driver's row from the table.
                 const rowId = `driver-row-${email.replace('@', '_').replace('.', '_')}`;
                 const row = document.getElementById(rowId);
                 if (row) {
-                    // Optional: Add a fade-out effect for a smoother UI.
                     row.style.transition = 'opacity 0.5s ease';
                     row.style.opacity = '0';
                     setTimeout(() => row.remove(), 500);

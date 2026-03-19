@@ -105,24 +105,50 @@
 }
     </style>
     {% endblock %} {% block content %}
-<h2>Welcome, {{ driver.name }} (Your Node: {{ driver.node }})</h2>
-
-<div class="map-wrapper-fullwidth">
-    <div class="map-container-inner">
-        <div id="map" style="background-color: #e0e0e0;">
-            <p style="text-align: center; padding-top: 50px; color: #555;">Loading map...</p>
+<div class="dashboard-shell">
+    <section class="page-hero driver-hero">
+        <div>
+            <h2>Driver Response Console</h2>
+            <p>Track incoming requests, route to active pickups, and manage your ride queue from a single operational view.</p>
         </div>
-    </div>
-</div>
+        <div class="hero-chip">Node {{ driver.node }}</div>
+    </section>
 
-<div id="activeRideDisplay" class="info-box" style="display: none; border-color: #28a745; background-color: #d4edda;">
-    <h4>Current Active Ride</h4>
-    <p>User: <span id="activeRideUserName" style="font-weight: bold;"></span></p>
-    <p>User Location: <span id="activeRideUserLocation" style="font-weight: bold;"></span> (Lat/Lng)</p>
-    <button id="completeRideBtn" onclick="markRideCompleted()" class="btn-confirm" style="background-color: #17a2b8;">
-        Mark Ride as Completed
-    </button>
-</div>
+    <section class="control-panel">
+        <div class="kpi-strip">
+            <div class="kpi-card">
+                <span>Driver</span>
+                <strong>{{ driver.name }}</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Vehicle</span>
+                <strong>{{ driver.vehicle }}</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Pending Requests</span>
+                <strong>{{ pending_requests|length }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="map-panel">
+        <div class="map-wrapper-fullwidth">
+            <div class="map-container-inner">
+                <div id="map" style="background-color: #e0e0e0;">
+                    <p style="text-align: center; padding-top: 50px; color: #555;">Loading map...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="activeRideDisplay" class="info-box" style="display: none; border-color: #28a745; background-color: #d4edda;">
+        <h4>Current Active Ride</h4>
+        <p>User: <span id="activeRideUserName" style="font-weight: bold;"></span></p>
+        <p>User Location: <span id="activeRideUserLocation" style="font-weight: bold;"></span> (Lat/Lng)</p>
+        <button id="completeRideBtn" onclick="markRideCompleted()" class="btn-confirm" style="background-color: #17a2b8;">
+            Mark Ride as Completed
+        </button>
+    </div>
  <!-- Html for chatbox -->
     <div id="temporaryChatBox" class="chat-container">
         <div class="chat-header" onclick="toggleChatWindow()">
@@ -139,26 +165,53 @@
     </div>
     <!-- end of html of chat-box -->
 
-<h3>Pending Ride Requests</h3>
+<section class="table-panel">
+    <div class="section-header">
+        <div>
+            <h3>Pending Ride Requests</h3>
+            <p>Respond to open requests as they arrive. Accepted rides move into the active ride panel above.</p>
+        </div>
+        <div class="table-meta">
+            <span class="status-pill active">{{ pending_requests|length }} open</span>
+        </div>
+    </div>
 <div id="requests">
     {% if pending_requests %} {% for req in pending_requests %}
     <div class="request-item">
-        <p>
-            <strong>User:</strong> {{ req.user_name }} ({{ req.user_email }})<br />
-            <strong>User's Location (Lat/Lng):</strong>
-            {% if req.user_latitude is not none and req.user_longitude is not none %} ({{ req.user_latitude|round(6) }}, {{ req.user_longitude|round(6) }}) {% else %} NOT PROVIDED {% endif %}<br />
-            <strong>Time Requested:</strong> {{ req.timestamp }}
-        </p>
-        <button onclick="respondToRequest('{{ req.id }}', 'accepted')" class="btn-confirm" {% if req.user_latitude is none or req.user_longitude is none %}disabled title="User location (lat/lng) for this request is missing." {% endif %}>
-            Accept
-        </button>
-        <button onclick="respondToRequest('{{ req.id }}', 'rejected')" class="btn-cancel">
-            Reject
-        </button>
+        <div class="request-card-head">
+            <div>
+                <p class="request-title">{{ req.user_name }}</p>
+                <p class="request-meta">{{ req.user_email }}</p>
+            </div>
+            <span class="status-pill active">Pending</span>
+        </div>
+        <div class="request-grid">
+            <div class="request-field">
+                <span>User Location</span>
+                {% if req.user_latitude is not none and req.user_longitude is not none %}{{ req.user_latitude|round(6) }}, {{ req.user_longitude|round(6) }}{% else %}Not provided{% endif %}
+            </div>
+            <div class="request-field">
+                <span>Requested At</span>
+                {{ req.timestamp }}
+            </div>
+        </div>
+        <div class="request-actions">
+            <button onclick="respondToRequest('{{ req.id }}', 'accepted')" class="btn-confirm" {% if req.user_latitude is none or req.user_longitude is none %}disabled title="User location (lat/lng) for this request is missing." {% endif %}>
+                Accept
+            </button>
+            <button onclick="respondToRequest('{{ req.id }}', 'rejected')" class="btn-cancel">
+                Reject
+            </button>
+        </div>
     </div>
     {% endfor %} {% else %}
-    <p>No pending requests at the moment.</p>
+    <div class="empty-state">
+        <h4>No pending requests</h4>
+        <p>When a user requests help and it is assigned to you, it will appear here automatically.</p>
+    </div>
     {% endif %}
+</div>
+</section>
 </div>
 
 <script>

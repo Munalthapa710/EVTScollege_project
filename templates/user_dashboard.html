@@ -105,46 +105,56 @@
 }
     </style>
 {% endblock %} {% block content %}
-<h2>Welcome, {{ user.name }}</h2>
-<p>
-    Your current location:
-    <strong>
-        <span id="currentUserPreciseLocation">
-            {% if user.latitude and user.longitude %} ({{ user.latitude|round(6) }}, {{ user.longitude|round(6) }}) {% else %} Please click map to set {% endif %}
-        </span>
-    </strong>
-    <small id="userClosestNodeSubDisplay" style="display: none; color: #555; min-height: 1em;"></small>
-    <span id="locationSetMessage" style="color: green; margin-left: 10px; font-weight: bold;"></span>
-</p>
-<!--mapcontent-->
-<div class="map-wrapper-fullwidth">
-    <div class="map-container-inner">
-        <div id="map"><p style="text-align: center; padding-top: 50px; color: #555;" id="mapLoadingText">Loading map...</p></div>
-    </div>
-</div>
+<div class="dashboard-shell">
+    <section class="page-hero">
+        <div>
+            <h2>Response Dashboard</h2>
+            <p>Set your location, preview the nearest available responder, and keep track of request status without leaving the map.</p>
+        </div>
+        <div class="hero-chip">{{ user.name }}</div>
+    </section>
 
-<div style="text-align: center; margin-bottom: 15px; margin-top: 20px;">
-    <label for="vehicleTypeSelect" style="margin-right: 10px; font-weight: 500;">Select Vehicle Type:</label>
-    <select id="vehicleTypeSelect" class="role-select" style="padding: 8px 12px; border-radius: 5px; min-width: 200px; border: 1px solid #ced4da;">
-        <option value="">Any Available Vehicle</option>
-        {% if vehicle_types %} {% for v_type in vehicle_types %}
-        <option value="{{ v_type }}">{{ v_type }}</option>
-        {% endfor %} {% else %}
-        <option value="Ambulance">Ambulance (Default)</option>
-        <option value="Fire Truck">Fire Truck (Default)</option>
-        <option value="Police Car">Police Car (Default)</option>
-        {% endif %}
-    </select>
-</div>
+    <section class="control-panel">
+        <div class="location-banner">
+            <strong>Current location:</strong>
+            <span id="currentUserPreciseLocation">
+                {% if user.latitude and user.longitude %}{{ user.latitude|round(6) }}, {{ user.longitude|round(6) }}{% else %}Click the map to set your position{% endif %}
+            </span>
+            <small id="userClosestNodeSubDisplay" style="display: none; min-height: 1em;"></small>
+            <span id="locationSetMessage" style="color: #15803d; font-weight: 700;"></span>
+        </div>
 
-<div style="text-align: center; margin-bottom: 20px;">
-    <button id="findNearestBtn" onclick="findNearestAndShowPreview(true)" {% if user.latitude is none or user.longitude is none %} disabled title="Click map to set your location first." {% endif %}>
-        Find Nearest Driver 
-    </button>
-    <div id="nearestDriverInfo" class="info-box" style="display: none; max-width: 500px; margin-left: auto; margin-right: auto;"></div>
-</div>
+        <div class="dashboard-actions">
+            <div class="filters-row">
+                <label for="vehicleTypeSelect">Vehicle Type</label>
+                <select id="vehicleTypeSelect" class="role-select">
+                    <option value="">Any Available Vehicle</option>
+                    {% if vehicle_types %} {% for v_type in vehicle_types %}
+                    <option value="{{ v_type }}">{{ v_type }}</option>
+                    {% endfor %} {% else %}
+                    <option value="Ambulance">Ambulance (Default)</option>
+                    <option value="Fire Truck">Fire Truck (Default)</option>
+                    <option value="Police Car">Police Car (Default)</option>
+                    {% endif %}
+                </select>
+                <button id="findNearestBtn" onclick="findNearestAndShowPreview(true)" {% if user.latitude is none or user.longitude is none %} disabled title="Click map to set your location first." {% endif %}>
+                    Find Nearest Driver
+                </button>
+            </div>
+            <p class="helper-copy">Dispatch uses the network graph to find the nearest reachable driver, not just straight-line distance.</p>
+            <div id="nearestDriverInfo" class="info-box" style="display: none; max-width: 560px;"></div>
+        </div>
+    </section>
 
-<div id="notifications" class="status-notifications">
+    <section class="map-panel">
+        <div class="map-wrapper-fullwidth">
+            <div class="map-container-inner">
+                <div id="map"><p style="text-align: center; padding-top: 50px; color: #555;" id="mapLoadingText">Loading map...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <div id="notifications" class="status-notifications">
     <h4>Current Ride Status:</h4>
     {% if current_ride_status %}
     <p class="status-{{ current_ride_status.type }}">
@@ -159,7 +169,7 @@
     {% endif %} {% else %}
     <p>No active ride requests. Click "Find Nearest Driver" to start.</p>
     {% endif %}
-</div>
+    </div>
 <!-- Html for chat-box -->
     <div id="temporaryChatBox" class="chat-container">
         <div class="chat-header" onclick="toggleChatWindow()">
@@ -175,6 +185,7 @@
         </form>
     </div>
     <!-- end -->
+</div>
 
 <script>
     let map; // Declared globally

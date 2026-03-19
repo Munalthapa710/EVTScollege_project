@@ -1,69 +1,88 @@
 {% extends 'admin_base.html' %}
 
 {% block content %}
-<h2>Admin Dashboard</h2>
-<!-- stats card sections -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <h3>Approved Drivers</h3>
-        <p>{{ stats.total_drivers }}</p>
+<div class="dashboard-shell">
+    <section class="page-hero admin-hero">
+        <div>
+            <h2>Admin Dashboard</h2>
+            <p>Monitor platform activity, review incoming driver registrations, and keep the EVTS network clean and operational.</p>
+        </div>
+        <div class="hero-chip">Control center</div>
+    </section>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Approved Drivers</h3>
+            <p>{{ stats.total_drivers }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Total Users</h3>
+            <p>{{ stats.total_users }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Pending Approvals</h3>
+            <p>{{ stats.pending_drivers }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Total Rides</h3>
+            <p>{{ stats.total_rides }}</p>
+        </div>
     </div>
-    <div class="stat-card">
-        <h3>Total Users</h3>
-        <p>{{ stats.total_users }}</p>
-    </div>
-    <div class="stat-card">
-        <h3>Pending Approvals</h3>
-        <p>{{ stats.pending_drivers }}</p>
-    </div>
-    <div class="stat-card">
-        <h3>Total Rides</h3>
-        <p>{{ stats.total_rides }}</p>
-    </div>
+
+    <section class="table-panel data-table">
+        <div class="section-header">
+            <div>
+                <h3>Driver Accounts Awaiting Approval</h3>
+                <p>Review new driver registrations before they can log in and receive ride requests.</p>
+            </div>
+            <div class="table-meta">
+                <span class="status-pill pending">{{ stats.pending_drivers }} pending</span>
+            </div>
+        </div>
+
+        {% if unapproved_drivers %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Vehicle</th>
+                    <th>Node</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for driver in unapproved_drivers %}
+            <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
+                <td>{{ driver.name }}</td>
+                <td>{{ driver.email }}</td>
+                <td>{{ driver.phone }}</td>
+                <td>{{ driver.vehicle }}</td>
+                <td>{{ driver.node }}</td>
+                <td>
+                    <div class="request-actions">
+                        <button class="btn-confirm" onclick="approveDriver('{{ driver.email }}')">Approve</button>
+                        <button class="btn-cancel" onclick="disapproveDriver('{{ driver.email }}')">Disapprove</button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <h4>No approvals waiting</h4>
+            <p>There are currently no new driver registrations to review.</p>
+        </div>
+        {% endif %}
+    </section>
 </div>
-
-<h3>Driver Accounts Awaiting Approval</h3>
-{% if unapproved_drivers %}
-<table border="1" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-    <thead>
-        <tr style="background-color: #f2f2f2;">
-            <th style="padding: 10px;">Name</th>
-            <th style="padding: 10px;">Email</th>
-            <th style="padding: 10px;">Phone</th>
-            <th style="padding: 10px;">Vehicle</th>
-            <th style="padding: 10px;">Node</th>
-            <th style="padding: 10px;">Action</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for driver in unapproved_drivers %}
-    <tr id="driver-row-{{ driver.email.replace('@', '_').replace('.', '_') }}">
-        <td style="padding: 10px;">{{ driver.name }}</td>
-        <td style="padding: 10px;">{{ driver.email }}</td>
-        <td style="padding: 10px;">{{ driver.phone }}</td>
-        <td style="padding: 10px;">{{ driver.vehicle }}</td>
-        <td style="padding: 10px;">{{ driver.node }}</td>
-        <td style="padding: 10px; text-align: center;">
-            <button class="btn-confirm" onclick="approveDriver('{{ driver.email }}')">Approve</button>
-             <button class="btn-cancel" style="margin-left: 5px;" onclick="disapproveDriver('{{ driver.email }}')">Disapprove</button>
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No new driver registrations to approve.</p>
-{% endif %}
-
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-     /**
-     * Finds and removes a driver's row from the pending approval table with a fade-out effect.
-     * Reloads the page afterwards to ensure statistics are updated.
-     */
-        function removeDriverRow(email) {
+    function removeDriverRow(email) {
         const rowId = `driver-row-${email.replace('@', '_').replace('.', '_')}`;
         const row = document.getElementById(rowId);
         if (row) {
@@ -71,11 +90,9 @@
             row.style.opacity = '0';
             setTimeout(() => {
                 row.remove();
-                // We reload to update the stats cards on the dashboard
-                window.location.reload(); 
+                window.location.reload();
             }, 500);
         } else {
-            // Fallback if the row isn't found
             window.location.reload();
         }
     }
@@ -95,7 +112,6 @@
         .then(data => {
             if (data.success) {
                 showToast(data.message, 'success');
-                
                 const rowId = `driver-row-${email.replace('@', '_').replace('.', '_')}`;
                 const row = document.getElementById(rowId);
                 if (row) {
@@ -103,7 +119,7 @@
                     row.style.opacity = '0';
                     setTimeout(() => {
                         row.remove();
-                        window.location.reload(); 
+                        window.location.reload();
                     }, 700);
                 } else {
                     window.location.reload();
@@ -117,9 +133,9 @@
             showToast('An unexpected error occurred while approving the driver.', 'error');
         });
     }
-    
+
     function disapproveDriver(email) {
-        if (!confirm(`Are you sure you want to DISAPPROVE and DELETE the pending registration for: ${email}? This action cannot be undone.`)) {
+        if (!confirm(`Are you sure you want to disapprove and delete the pending registration for: ${email}? This action cannot be undone.`)) {
             return;
         }
 
@@ -128,7 +144,6 @@
         .then(data => {
             if (data.success) {
                 showToast(data.message, 'success');
-                // We reuse the same function to remove the row from the table
                 removeDriverRow(email);
             } else {
                 showToast(data.message || 'Unable to remove pending driver.', 'error');
